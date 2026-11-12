@@ -1,536 +1,146 @@
 
 <!DOCTYPE html>
 <html lang="id">
-
 <head>
-
-  <base target="_top">
-
   <meta charset="UTF-8">
-
-  <meta name="viewport"
-    content="width=device-width, initial-scale=1">
-
-  <title>Kamera Absensi QR</title>
-
-  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pemindai QR Absensi Sekolah</title>
 
   <style>
-
     * {
       box-sizing: border-box;
     }
 
     body {
       margin: 0;
-      padding: 18px;
-      background: #f1f5f9;
-      color: #1e293b;
+      min-height: 100vh;
+      padding: 15px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
       font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #1748d0, #07152e);
     }
 
     .container {
       width: 100%;
-      max-width: 480px;
-      margin: 15px auto;
+      max-width: 520px;
       padding: 22px;
-      background: white;
       border-radius: 18px;
-      box-shadow: 0 5px 25px #00000012;
-      text-align: center;
+      background: white;
+      box-shadow: 0 15px 45px #0004;
     }
 
     h2 {
-      color: #0f766e;
       margin-top: 0;
+      text-align: center;
     }
 
-    .description {
+    p {
       color: #64748b;
+      text-align: center;
       font-size: 14px;
-      line-height: 1.6;
     }
 
-    #reader {
-      width: 100%;
-      margin-top: 18px;
-      overflow: hidden;
-      border-radius: 12px;
-    }
-
-    #status {
-      margin-top: 18px;
-      padding: 14px;
-      border-radius: 10px;
-      background: #e2e8f0;
-      font-size: 14px;
-      line-height: 1.6;
-      overflow-wrap: anywhere;
-    }
-
-    .success {
-      background: #dcfce7 !important;
-      color: #166534;
+    .status {
+      padding: 12px;
+      margin: 15px 0;
+      border-radius: 9px;
+      background: #dbeafe;
+      color: #1e40af;
+      font-size: 13px;
+      text-align: center;
     }
 
     .error {
-      background: #fee2e2 !important;
+      background: #fee2e2;
       color: #991b1b;
     }
 
-    .loading {
-      background: #fef3c7 !important;
-      color: #92400e;
-    }
-
-    button {
+    iframe {
       width: 100%;
-      margin-top: 14px;
-      padding: 14px;
-      border: none;
-      border-radius: 10px;
-      background: #0f766e;
-      color: white;
-      font-size: 15px;
-      font-weight: bold;
-      cursor: pointer;
+      height: 720px;
+      border: 0;
+      border-radius: 12px;
+      background: white;
     }
 
-    button.secondary {
-      background: #e2e8f0;
-      color: #334155;
-    }
+    @media(max-width: 600px) {
+      body {
+        padding: 0;
+        display: block;
+      }
 
-    button:disabled {
-      opacity: .5;
-      cursor: not-allowed;
-    }
+      .container {
+        min-height: 100vh;
+        max-width: none;
+        padding: 15px;
+        border-radius: 0;
+      }
 
-    .identity {
-      margin-top: 15px;
-      padding: 15px;
-      border: 1px solid #e2e8f0;
-      border-radius: 10px;
-      text-align: left;
-      font-size: 14px;
-      line-height: 1.8;
-      overflow-wrap: anywhere;
+      iframe {
+        height: 78vh;
+      }
     }
-
-    .identity b {
-      color: #0f766e;
-      display: block;
-      font-size: 16px;
-    }
-
-    .small {
-      margin-top: 18px;
-      font-size: 11px;
-      color: #64748b;
-    }
-
   </style>
-
 </head>
 
 <body>
 
 <div class="container">
+  <h2>Absensi QR Sekolah</h2>
+  <p>Pemindai kamera absensi siswa dan guru.</p>
 
-  <h2>ABSENSI QR CODE</h2>
-
-  <p class="description">
-    Arahkan kamera belakang HP ke QR Code siswa atau guru.
-    Data kehadiran akan tersimpan otomatis.
-  </p>
-
-  <div id="reader"></div>
-
-  <div id="status" class="loading">
-    Menyiapkan kamera...
+  <div id="status" class="status">
+    Menghubungkan ke aplikasi absensi...
   </div>
 
-  <div id="identity" class="identity">
-    Belum ada QR Code dipindai.
-  </div>
-
-  <button
-    id="restartButton"
-    onclick="startCamera()"
-    disabled
-  >
-    AKTIFKAN KAMERA
-  </button>
-
-  <button
-    id="stopButton"
-    class="secondary"
-    onclick="stopCamera()"
-  >
-    MATIKAN KAMERA
-  </button>
-
-  <p class="small">
-    Sistem Absensi Digital Sekolah
-  </p>
-
+  <iframe
+    id="scannerFrame"
+    title="Pemindai QR Absensi"
+    allow="camera; fullscreen">
+  </iframe>
 </div>
 
-
 <script>
+(function() {
+  const params = new URLSearchParams(window.location.search);
 
-/****************************************************
- * VARIABEL SCANNER
- ****************************************************/
+  const appUrl = params.get('app');
+  const token = params.get('token');
 
-let scanner = null;
+  const status = document.getElementById('status');
+  const frame = document.getElementById('scannerFrame');
 
-let scanLock = false;
-
-let cameraRunning = false;
-
-let token = '';
-
-const statusBox =
-  document.getElementById('status');
-
-const identityBox =
-  document.getElementById('identity');
-
-const restartButton =
-  document.getElementById('restartButton');
-
-const stopButton =
-  document.getElementById('stopButton');
-
-
-/****************************************************
- * TOKEN LOGIN
- ****************************************************/
-
-function getToken() {
-
-  const params = new URLSearchParams(
-    window.location.hash.substring(1)
-  );
-
-  return params.get('token') || '';
-
-}
-
-
-/****************************************************
- * PESAN STATUS
- ****************************************************/
-
-function showStatus(message, type = '') {
-
-  statusBox.textContent = message;
-
-  statusBox.className = type;
-
-}
-
-
-/****************************************************
- * MENGIRIM DATA KE GOOGLE APPS SCRIPT
- ****************************************************/
-
-function sendAttendance(qrText) {
-
-  return new Promise((resolve, reject) => {
-
-    google.script.run
-
-      .withSuccessHandler(function(result) {
-        resolve(result);
-      })
-
-      .withFailureHandler(function(error) {
-
-        reject(
-          new Error(
-            error.message || String(error)
-          )
-        );
-
-      })
-
-      .submitQrAttendance(
-        token,
-        qrText
-      );
-
-  });
-
-}
-
-
-/****************************************************
- * MENJALANKAN KAMERA
- ****************************************************/
-
-async function startCamera() {
-
-  if (cameraRunning) return;
-
-  token = getToken();
-
-  if (!token) {
-
-    showStatus(
-      'Token login tidak ditemukan. Silakan buka kamera dari dashboard aplikasi.',
-      'error'
-    );
-
+  if (!appUrl || !token) {
+    status.textContent =
+      'Sesi tidak ditemukan. Silakan buka pemindai melalui aplikasi absensi.';
+    status.classList.add('error');
     return;
   }
 
-  if (!window.Html5Qrcode) {
-
-    showStatus(
-      'Library QR Code gagal dimuat. Periksa koneksi internet.',
-      'error'
-    );
-
-    return;
-  }
-
-  showStatus(
-    'Mengaktifkan kamera...',
-    'loading'
-  );
-
-  restartButton.disabled = true;
-
   try {
+    const url = new URL(appUrl);
 
-    if (!scanner) {
-
-      scanner = new Html5Qrcode('reader');
-
+    if (url.protocol !== 'https:') {
+      throw new Error('Alamat aplikasi harus menggunakan HTTPS.');
     }
 
-    await scanner.start(
+    url.searchParams.set('page', 'scanner');
+    url.searchParams.set('token', token);
 
-      { facingMode: 'environment' },
+    frame.src = url.toString();
 
-      {
-        fps: 10,
-
-        qrbox: {
-          width: 250,
-          height: 250
-        },
-
-        aspectRatio: 1
-      },
-
-      onScanSuccess,
-
-      function() {
-        // Mengabaikan frame yang belum terbaca.
-      }
-
-    );
-
-    cameraRunning = true;
-
-    restartButton.disabled = true;
-
-    showStatus(
-      'Kamera aktif. Silakan pindai QR Code.',
-      'success'
-    );
+    frame.onload = function() {
+      status.textContent =
+        'Aplikasi terhubung. Silakan mulai kamera.';
+    };
 
   } catch (error) {
-
-    cameraRunning = false;
-
-    restartButton.disabled = false;
-
-    showStatus(
-      'Kamera gagal dibuka: ' + error.message,
-      'error'
-    );
-
+    status.textContent = error.message;
+    status.classList.add('error');
   }
-
-}
-
-
-/****************************************************
- * MEMATIKAN KAMERA
- ****************************************************/
-
-async function stopCamera() {
-
-  try {
-
-    if (scanner && cameraRunning) {
-
-      await scanner.stop();
-
-    }
-
-  } catch (error) {
-    // Kamera mungkin sudah berhenti.
-  }
-
-  cameraRunning = false;
-
-  restartButton.disabled = false;
-
-  showStatus(
-    'Kamera dimatikan.',
-    ''
-  );
-
-}
-
-
-/****************************************************
- * HASIL SCAN QR
- ****************************************************/
-
-async function onScanSuccess(decodedText) {
-
-  if (scanLock) return;
-
-  scanLock = true;
-
-  restartButton.disabled = true;
-
-  const id = String(
-    decodedText || ''
-  ).trim();
-
-  showStatus(
-    'QR terbaca. Menyimpan absensi ke Spreadsheet...',
-    'loading'
-  );
-
-  try {
-
-    await stopScannerInternal_();
-
-    const result = await sendAttendance(id);
-
-    if (!result || result.success !== true) {
-
-      throw new Error(
-        result && result.message
-          ? result.message
-          : 'Absensi gagal disimpan.'
-      );
-
-    }
-
-    const record = result.record || {};
-
-    identityBox.innerHTML =
-      '<b>' + escapeHtml_(record.name || 'Berhasil') + '</b>' +
-      'ID: ' + escapeHtml_(record['ID/NIS/NIP'] || id) +
-      '<br>Peran: ' + escapeHtml_(record.Peran || '-') +
-      '<br>Kelas/Jabatan: ' + escapeHtml_(record['Kelas / Jabatan'] || '-') +
-      '<br>Waktu: ' + escapeHtml_(record['Waktu Masuk'] || '-');
-
-    showStatus(
-      result.message || 'ABSENSI BERHASIL DISIMPAN!',
-      'success'
-    );
-
-  } catch (error) {
-
-    showStatus(
-      'ABSENSI GAGAL: ' + error.message,
-      'error'
-    );
-
-  }
-
-  // Kamera otomatis aktif kembali untuk scan berikutnya.
-  setTimeout(async function() {
-
-    scanLock = false;
-
-    if (!cameraRunning) {
-
-      await startCamera();
-
-    }
-
-  }, 2500);
-
-}
-
-
-/****************************************************
- * BERHENTI TANPA MENGUBAH PESAN
- ****************************************************/
-
-async function stopScannerInternal_() {
-
-  if (scanner && cameraRunning) {
-
-    try {
-
-      await scanner.stop();
-
-    } catch (error) {}
-
-  }
-
-  cameraRunning = false;
-
-}
-
-
-/****************************************************
- * KEAMANAN TAMPILAN
- ****************************************************/
-
-function escapeHtml_(value) {
-
-  return String(value ?? '').replace(
-    /[&<>"']/g,
-    char => ({
-      '&': '&amp;',
-      '<': '&lt;',
-      '>': '&gt;',
-      '"': '&quot;',
-      "'": '&#39;'
-    })[char]
-  );
-
-}
-
-
-/****************************************************
- * JALANKAN SAAT HALAMAN DIBUKA
- ****************************************************/
-
-window.addEventListener(
-  'load',
-  function() {
-
-    token = getToken();
-
-    if (!token) {
-
-      showStatus(
-        'Silakan buka halaman kamera dari dashboard aplikasi.',
-        'error'
-      );
-
-      return;
-    }
-
-    startCamera();
-
-  }
-);
-
+})();
 </script>
 
 </body>
