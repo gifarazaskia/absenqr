@@ -4,6 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+
 <title>Scanner Absensi QR</title>
 
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
@@ -17,24 +18,25 @@
 }
 
 body {
+  min-height: 100vh;
   background: #f1f5f9;
   color: #172033;
-  min-height: 100vh;
 }
 
 .container {
+  width: 100%;
   max-width: 480px;
   min-height: 100vh;
   margin: auto;
-  background: white;
+  background: #fff;
   padding: 20px;
 }
 
 .header {
-  background: #14532d;
-  color: white;
-  padding: 22px;
+  padding: 23px 15px;
   border-radius: 15px;
+  background: #14213d;
+  color: white;
   text-align: center;
   margin-bottom: 22px;
 }
@@ -45,7 +47,8 @@ body {
 }
 
 .header p {
-  font-size: 13px;
+  font-size: 12px;
+  opacity: .85;
 }
 
 .info {
@@ -54,41 +57,47 @@ body {
 }
 
 .info h3 {
+  font-size: 18px;
   margin-bottom: 7px;
 }
 
 .info p {
   font-size: 13px;
   color: #64748b;
+  line-height: 1.5;
 }
 
 #reader {
   width: 100%;
+  min-height: 230px;
   overflow: hidden;
+  border: 1px solid #e2e8f0;
   border-radius: 15px;
   background: #111827;
 }
 
 #reader video {
-  object-fit: cover !important;
+  width: 100%;
+  object-fit: cover;
 }
 
 .result {
   display: none;
-  margin-top: 18px;
+  margin-top: 17px;
   padding: 17px;
   border-radius: 12px;
-  line-height: 1.7;
+  line-height: 1.8;
   overflow-wrap: anywhere;
+  font-size: 13px;
 }
 
-.success {
+.result.success {
   display: block;
   background: #dcfce7;
   color: #166534;
 }
 
-.error {
+.result.error {
   display: block;
   background: #fee2e2;
   color: #991b1b;
@@ -111,6 +120,11 @@ button {
   margin-top: 12px;
 }
 
+button:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+
 .btn-green {
   background: #15803d;
   color: white;
@@ -129,13 +143,10 @@ button {
 .status {
   text-align: center;
   margin-top: 15px;
-  font-size: 13px;
+  font-size: 12px;
   color: #64748b;
-  line-height: 1.5;
-}
-
-.hidden {
-  display: none;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
 }
 
 .footer {
@@ -143,6 +154,10 @@ button {
   color: #94a3b8;
   font-size: 11px;
   margin-top: 25px;
+}
+
+.hidden {
+  display: none !important;
 }
 </style>
 </head>
@@ -158,7 +173,10 @@ button {
 
   <div class="info">
     <h3>PEMINDAIAN QR CODE</h3>
-    <p>Arahkan kamera belakang HP ke QR Code.</p>
+    <p>
+      Arahkan kamera belakang HP ke QR Code
+      siswa atau guru.
+    </p>
   </div>
 
   <div id="reader"></div>
@@ -166,7 +184,7 @@ button {
   <div id="result" class="result"></div>
 
   <button
-    id="restartButton"
+    id="nextButton"
     class="btn-green hidden"
     onclick="restartScanner()">
     SCAN BERIKUTNYA
@@ -179,8 +197,15 @@ button {
     TUTUP KAMERA
   </button>
 
+  <button
+    id="backButton"
+    class="btn-gray"
+    onclick="backToMain()">
+    KEMBALI KE APLIKASI
+  </button>
+
   <div id="status" class="status">
-    Memeriksa koneksi aplikasi...
+    Memeriksa sesi aplikasi...
   </div>
 
   <div class="footer">
@@ -189,10 +214,10 @@ button {
 
 </div>
 
-<!-- PENGHUBUNG KE APPS SCRIPT -->
+<!-- IFRAME PENGHUBUNG APPS SCRIPT -->
 <iframe
-  name="apiFrame"
   id="apiFrame"
+  name="apiFrame"
   style="display:none">
 </iframe>
 
@@ -211,26 +236,43 @@ button {
 
 <script>
 
-/****************************************************
- * PENGATURAN
- ****************************************************/
+/************************************************
+ * PENGATURAN KONEKSI
+ ************************************************/
 
-// Ganti dengan URL deployment Web App Apps Script.
+/*
+ * GANTI DENGAN URL WEB APP APPS SCRIPT
+ * URL HARUS BERAKHIR DENGAN /exec
+ */
+
 const API_URL =
-  'MASUKKAN_URL_WEB_APP_APPS_SCRIPT/exec';
+  'MASUKKAN_URL_WEB_APP_APPS_SCRIPT_DI_SINI';
 
-let token = '';
+
+/************************************************
+ * KONFIGURASI GITHUB
+ ************************************************/
+
+const MAIN_URL =
+  'https://gifarazaskia.github.io/absenqr/';
+
+
+/************************************************
+ * VARIABEL
+ ************************************************/
+
+let appToken = '';
 let scanner = null;
 let scannerRunning = false;
 let scanLocked = false;
 let pendingRequest = null;
 
 
-/****************************************************
- * MEMBACA TOKEN LOGIN
- ****************************************************/
+/************************************************
+ * MEMBACA TOKEN DARI APLIKASI UTAMA
+ ************************************************/
 
-function getToken() {
+function readToken() {
   const params = new URLSearchParams(
     window.location.hash.substring(1)
   );
@@ -239,39 +281,60 @@ function getToken() {
 }
 
 
-/****************************************************
- * INISIALISASI
- ****************************************************/
+/************************************************
+ * MULAI APLIKASI
+ ************************************************/
 
 window.addEventListener('load', async function() {
 
-  token = getToken();
+  appToken = readToken();
 
-  // Hilangkan token dari address bar setelah dibaca.
+  // Menghapus token dari address bar.
   history.replaceState(
     null,
     '',
     window.location.pathname + window.location.search
   );
 
-  if (!token) {
+  if (!appToken) {
     showResult(
-      'Token login tidak ditemukan. Silakan buka scanner dari aplikasi utama.',
+      'Sesi tidak ditemukan. Silakan login melalui aplikasi utama, kemudian buka scanner kembali.',
       false
     );
 
-    document.getElementById('status').textContent =
-      'Akses scanner ditolak.';
+    $('status').textContent =
+      'Akses scanner memerlukan sesi aplikasi utama.';
 
-    document.getElementById('stopButton').classList.add('hidden');
+    $('stopButton').classList.add('hidden');
+
     return;
   }
 
-  if (!window.isSecureContext) {
+  if (
+    !window.isSecureContext ||
+    !navigator.mediaDevices
+  ) {
     showResult(
-      'Scanner harus dibuka menggunakan HTTPS.',
+      'Browser tidak mendukung akses kamera. Buka melalui HTTPS.',
       false
     );
+    return;
+  }
+
+  if (
+    API_URL.indexOf(
+      'https://script.google.com/macros/s/'
+    ) !== 0 ||
+    !API_URL.endsWith('/exec')
+  ) {
+    showResult(
+      'URL Apps Script belum diatur dengan benar pada kode GitHub.',
+      false
+    );
+
+    $('status').textContent =
+      'Periksa konfigurasi API_URL.';
+
     return;
   }
 
@@ -279,23 +342,35 @@ window.addEventListener('load', async function() {
 });
 
 
-/****************************************************
- * MEMULAI KAMERA
- ****************************************************/
+/************************************************
+ * ELEMEN HTML
+ ************************************************/
+
+function $(id) {
+  return document.getElementById(id);
+}
+
+
+/************************************************
+ * MENYALAKAN KAMERA BELAKANG
+ ************************************************/
 
 async function startScanner() {
 
-  if (!token) return;
-
   try {
-
-    document.getElementById('status').textContent =
+    $('status').textContent =
       'Meminta izin kamera...';
 
-    document.getElementById('result').className = 'result';
+    $('result').className = 'result';
 
-    document.getElementById('restartButton')
-      .classList.add('hidden');
+    $('nextButton').classList.add('hidden');
+    $('stopButton').classList.remove('hidden');
+
+    if (!window.Html5Qrcode) {
+      throw new Error(
+        'Library scanner QR gagal dimuat.'
+      );
+    }
 
     if (!scanner) {
       scanner = new Html5Qrcode('reader');
@@ -304,10 +379,10 @@ async function startScanner() {
     await scanner.start(
       { facingMode: 'environment' },
       {
-        fps: 10,
+        fps: 12,
         qrbox: function(width, height) {
           const size = Math.floor(
-            Math.min(width, height) * 0.75
+            Math.min(width, height) * 0.72
           );
 
           return {
@@ -320,35 +395,32 @@ async function startScanner() {
       async function(decodedText) {
         await onScan(decodedText);
       },
-      function() {
-        // Mengabaikan frame yang belum terbaca.
-      }
+      function() {}
     );
 
     scannerRunning = true;
     scanLocked = false;
 
-    document.getElementById('status').textContent =
-      'Kamera aktif. Silakan scan QR Code.';
+    $('status').textContent =
+      'Kamera aktif. Silakan pindai QR Code.';
 
   } catch (error) {
-
     scannerRunning = false;
 
     showResult(
-      'Kamera tidak dapat dibuka: ' + error.message,
+      'Kamera gagal dibuka: ' + error.message,
       false
     );
 
-    document.getElementById('status').textContent =
+    $('status').textContent =
       'Periksa izin kamera pada browser HP.';
   }
 }
 
 
-/****************************************************
- * HASIL SCAN
- ****************************************************/
+/************************************************
+ * MEMBACA QR CODE
+ ************************************************/
 
 async function onScan(decodedText) {
 
@@ -356,15 +428,19 @@ async function onScan(decodedText) {
 
   scanLocked = true;
 
-  const qr = String(decodedText).trim();
+  const qr = String(decodedText || '').trim();
 
-  document.getElementById('status').textContent =
-    'QR Code terbaca. Mengirim data...';
+  if (!qr) {
+    scanLocked = false;
+    return;
+  }
+
+  $('status').textContent =
+    'QR Code terbaca. Mengirim data ke server...';
 
   await stopCameraOnly();
 
   try {
-
     const response = await sendToAppsScript(qr);
 
     if (
@@ -373,13 +449,12 @@ async function onScan(decodedText) {
       response.result &&
       response.result.success
     ) {
-
       const record = response.result.record || {};
 
       showResult(
         '<strong>ABSENSI BERHASIL!</strong>' +
         'Nama: ' + safe(record.Nama) + '<br>' +
-        'ID: ' + safe(record['ID/NIS/NIP']) + '<br>' +
+        'NIS/NIP: ' + safe(record['ID/NIS/NIP']) + '<br>' +
         'Peran: ' + safe(record.Peran) + '<br>' +
         'Kelas/Jabatan: ' + safe(record['Kelas / Jabatan']) + '<br>' +
         'Tanggal: ' + safe(record.Tanggal) + '<br>' +
@@ -388,51 +463,52 @@ async function onScan(decodedText) {
         true
       );
 
-      document.getElementById('status').textContent =
+      $('status').textContent =
         'Data berhasil disimpan ke Google Spreadsheet.';
 
     } else {
-
       const message =
         response && response.result
           ? response.result.message
-          : 'Gagal menyimpan absensi.';
+          : 'Data gagal disimpan.';
 
       showResult(
-        '<strong>ABSENSI GAGAL!</strong>' + safe(message),
+        '<strong>ABSENSI GAGAL!</strong>' +
+        safe(message),
         false
       );
 
-      document.getElementById('status').textContent =
-        'Periksa QR Code atau coba kembali.';
+      $('status').textContent =
+        'Silakan periksa QR Code atau coba kembali.';
     }
 
   } catch (error) {
-
     showResult(
-      '<strong>KONEKSI GAGAL!</strong>' + safe(error.message),
+      '<strong>KONEKSI GAGAL!</strong>' +
+      safe(error.message),
       false
     );
 
-    document.getElementById('status').textContent =
-      'Tidak berhasil menghubungi server.';
+    $('status').textContent =
+      'Server tidak memberikan respons.';
   }
 
-  document.getElementById('restartButton')
-    .classList.remove('hidden');
+  $('nextButton').classList.remove('hidden');
 }
 
 
-/****************************************************
- * KIRIM DATA KE APPS SCRIPT
- ****************************************************/
+/************************************************
+ * KIRIM HASIL SCAN KE APPS SCRIPT
+ ************************************************/
 
 function sendToAppsScript(qr) {
 
   return new Promise(function(resolve, reject) {
 
     if (pendingRequest) {
-      reject(new Error('Permintaan sebelumnya belum selesai.'));
+      reject(
+        new Error('Masih ada permintaan yang diproses.')
+      );
       return;
     }
 
@@ -449,46 +525,47 @@ function sendToAppsScript(qr) {
     const payload = {
       action: 'scan',
       requestId: requestId,
-      token: token,
+      token: appToken,
       qr: qr
     };
 
-    document.getElementById('apiPayload').value =
+    $('apiPayload').value =
       JSON.stringify(payload);
 
-    document.getElementById('apiForm').action =
-      API_URL;
+    $('apiForm').action = API_URL;
 
-    document.getElementById('apiForm').submit();
+    $('apiForm').submit();
 
     setTimeout(function() {
-
       if (
         pendingRequest &&
         pendingRequest.requestId === requestId
       ) {
         pendingRequest = null;
 
-        reject(new Error(
-          'Server tidak memberikan respons dalam 30 detik.'
-        ));
+        reject(
+          new Error(
+            'Waktu koneksi habis. Periksa URL Apps Script dan deployment.'
+          )
+        );
       }
-
     }, 30000);
 
   });
 }
 
 
-/****************************************************
+/************************************************
  * MENERIMA RESPONS APPS SCRIPT
- ****************************************************/
+ ************************************************/
 
 window.addEventListener('message', function(event) {
 
-  const frame = document.getElementById('apiFrame');
+  const frame = $('apiFrame');
 
-  if (event.source !== frame.contentWindow) return;
+  if (event.source !== frame.contentWindow) {
+    return;
+  }
 
   const data = event.data;
 
@@ -501,23 +578,19 @@ window.addEventListener('message', function(event) {
   }
 
   const request = pendingRequest;
+
   pendingRequest = null;
 
-  if (data.success) {
-    request.resolve(data);
-  } else {
-    request.resolve(data);
-  }
+  request.resolve(data);
 });
 
 
-/****************************************************
- * MENAMPILKAN HASIL
- ****************************************************/
+/************************************************
+ * TAMPILKAN HASIL SCAN
+ ************************************************/
 
 function showResult(message, success) {
-
-  const element = document.getElementById('result');
+  const element = $('result');
 
   element.className = success
     ? 'result success'
@@ -527,16 +600,15 @@ function showResult(message, success) {
 }
 
 
-/****************************************************
+/************************************************
  * SCAN BERIKUTNYA
- ****************************************************/
+ ************************************************/
 
 async function restartScanner() {
 
-  document.getElementById('result').className = 'result';
+  $('result').className = 'result';
 
-  document.getElementById('restartButton')
-    .classList.add('hidden');
+  $('nextButton').classList.add('hidden');
 
   scanLocked = false;
 
@@ -544,9 +616,9 @@ async function restartScanner() {
 }
 
 
-/****************************************************
- * STOP KAMERA
- ****************************************************/
+/************************************************
+ * MATIKAN KAMERA
+ ************************************************/
 
 async function stopCameraOnly() {
 
@@ -564,23 +636,28 @@ async function stopScanner() {
 
   await stopCameraOnly();
 
-  document.getElementById('status').textContent =
-    'Kamera telah ditutup.';
+  $('status').textContent =
+    'Kamera berhasil ditutup.';
 
-  document.getElementById('stopButton')
-    .classList.add('hidden');
-
-  document.getElementById('restartButton')
-    .classList.remove('hidden');
+  $('stopButton').classList.add('hidden');
+  $('nextButton').classList.remove('hidden');
 }
 
 
-/****************************************************
- * AMANKAN TEKS HASIL SCAN
- ****************************************************/
+/************************************************
+ * KEMBALI KE APLIKASI UTAMA
+ ************************************************/
+
+function backToMain() {
+  window.location.href = MAIN_URL;
+}
+
+
+/************************************************
+ * AMANKAN TEKS
+ ************************************************/
 
 function safe(value) {
-
   return String(value || '').replace(
     /[&<>"']/g,
     function(char) {
@@ -589,11 +666,23 @@ function safe(value) {
         '<': '&lt;',
         '>': '&gt;',
         '"': '&quot;',
-        "'": '&#039;'
+        "'": '&#39;'
       }[char];
     }
   );
 }
+
+
+/************************************************
+ * TUTUP KAMERA SAAT HALAMAN DITINGGALKAN
+ ************************************************/
+
+window.addEventListener(
+  'pagehide',
+  function() {
+    stopCameraOnly();
+  }
+);
 
 </script>
 
