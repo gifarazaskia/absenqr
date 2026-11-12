@@ -1,0 +1,877 @@
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Absensi QR Code</title>
+
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+
+<style>
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: Arial, sans-serif;
+}
+
+body {
+  background: #f1f5f9;
+  color: #172033;
+  min-height: 100vh;
+}
+
+button, input {
+  font: inherit;
+}
+
+button {
+  border: 0;
+  cursor: pointer;
+}
+
+.app {
+  width: 100%;
+  max-width: 520px;
+  min-height: 100vh;
+  margin: auto;
+  background: #fff;
+  position: relative;
+}
+
+.header {
+  padding: 24px 20px;
+  background: #14532d;
+  color: white;
+}
+
+.header h1 {
+  font-size: 23px;
+  margin-bottom: 7px;
+}
+
+.header p {
+  font-size: 13px;
+  opacity: .85;
+}
+
+.content {
+  padding: 20px;
+}
+
+.view {
+  display: none;
+}
+
+.view.active {
+  display: block;
+}
+
+.card {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 15px;
+  padding: 18px;
+  margin-bottom: 16px;
+  box-shadow: 0 4px 14px rgba(0,0,0,.04);
+}
+
+.card h2 {
+  font-size: 18px;
+  margin-bottom: 14px;
+}
+
+.input-group {
+  margin-bottom: 15px;
+}
+
+.input-group label {
+  display: block;
+  margin-bottom: 7px;
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.input-group input {
+  width: 100%;
+  padding: 13px;
+  border: 1px solid #cbd5e1;
+  border-radius: 9px;
+  outline: none;
+}
+
+.input-group input:focus {
+  border-color: #16a34a;
+}
+
+.btn {
+  width: 100%;
+  padding: 14px;
+  border-radius: 10px;
+  font-weight: bold;
+  margin-top: 8px;
+}
+
+.btn-primary {
+  background: #15803d;
+  color: white;
+}
+
+.btn-secondary {
+  background: #e2e8f0;
+  color: #172033;
+}
+
+.btn-danger {
+  background: #dc2626;
+  color: white;
+}
+
+.info {
+  background: #ecfdf5;
+  border: 1px solid #bbf7d0;
+  border-radius: 12px;
+  padding: 15px;
+  margin-bottom: 16px;
+}
+
+.info strong {
+  color: #166534;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.stat {
+  background: #f0fdf4;
+  padding: 17px;
+  border-radius: 13px;
+}
+
+.stat small {
+  color: #64748b;
+}
+
+.stat h2 {
+  font-size: 27px;
+  color: #166534;
+  margin-top: 8px;
+}
+
+.user-name {
+  font-weight: bold;
+  margin-bottom: 6px;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 12px;
+}
+
+th, td {
+  border-bottom: 1px solid #e2e8f0;
+  padding: 11px 8px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+th {
+  background: #f8fafc;
+}
+
+.scanner-title {
+  text-align: center;
+  margin-bottom: 18px;
+}
+
+.scanner-title h2 {
+  margin-bottom: 7px;
+}
+
+.scanner-title p {
+  color: #64748b;
+  font-size: 13px;
+}
+
+#reader {
+  width: 100%;
+  overflow: hidden;
+  border-radius: 14px;
+  background: #111827;
+}
+
+#reader video {
+  object-fit: cover !important;
+  border-radius: 12px;
+}
+
+#reader__dashboard_section_csr button {
+  padding: 9px;
+  margin: 5px;
+  border-radius: 8px;
+}
+
+.result {
+  padding: 16px;
+  border-radius: 12px;
+  margin-top: 15px;
+  display: none;
+  line-height: 1.7;
+}
+
+.result.success {
+  display: block;
+  background: #dcfce7;
+  color: #166534;
+}
+
+.result.error {
+  display: block;
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.result strong {
+  display: block;
+  font-size: 16px;
+}
+
+.scanner-actions {
+  margin-top: 15px;
+}
+
+.status {
+  text-align: center;
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 12px;
+}
+
+.hidden-frame {
+  display: none;
+}
+
+@media (max-width: 380px) {
+  .content {
+    padding: 14px;
+  }
+  .header h1 {
+    font-size: 20px;
+  }
+}
+</style>
+</head>
+
+<body>
+
+<div class="app">
+
+  <div class="header">
+    <h1>ABSENSI QR CODE</h1>
+    <p>Sistem Kehadiran Siswa dan Guru</p>
+  </div>
+
+  <div class="content">
+
+    <!-- LOGIN -->
+    <section id="loginView" class="view active">
+
+      <div class="card">
+        <h2>Login Pengguna</h2>
+
+        <div class="input-group">
+          <label>Username</label>
+          <input id="username" type="text"
+                 placeholder="Masukkan username">
+        </div>
+
+        <div class="input-group">
+          <label>Password</label>
+          <input id="password" type="password"
+                 placeholder="Masukkan password">
+        </div>
+
+        <button class="btn btn-primary" onclick="login()">
+          LOGIN
+        </button>
+
+        <div id="loginMessage" class="status"></div>
+      </div>
+
+    </section>
+
+    <!-- DASHBOARD -->
+    <section id="dashboardView" class="view">
+
+      <div class="info">
+        <div class="user-name" id="userName">Administrator</div>
+        <small id="userRole">Admin</small>
+      </div>
+
+      <div class="stats">
+        <div class="stat">
+          <small>Hadir Hari Ini</small>
+          <h2 id="totalHadir">0</h2>
+        </div>
+
+        <div class="stat">
+          <small>Status</small>
+          <h2 style="font-size:20px">Aktif</h2>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Menu Absensi</h2>
+
+        <button class="btn btn-primary" onclick="openScanner()">
+          BUKA KAMERA / SCAN QR
+        </button>
+
+        <button class="btn btn-secondary" onclick="loadDashboard()">
+          MUAT ULANG REKAP
+        </button>
+
+        <button class="btn btn-danger" onclick="logout()">
+          LOGOUT
+        </button>
+      </div>
+
+      <div class="card">
+        <h2>Rekap Kehadiran Hari Ini</h2>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>No</th>
+                <th>ID</th>
+                <th>Nama</th>
+                <th>Peran</th>
+                <th>Waktu</th>
+              </tr>
+            </thead>
+
+            <tbody id="attendanceTable">
+              <tr>
+                <td colspan="5">Belum ada data.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- SCANNER -->
+    <section id="scannerView" class="view">
+
+      <div class="scanner-title">
+        <h2>PEMINDAIAN QR CODE</h2>
+        <p>Arahkan kamera ke QR Code siswa atau guru.</p>
+      </div>
+
+      <div id="reader"></div>
+
+      <div id="scanResult" class="result"></div>
+
+      <div class="scanner-actions">
+
+        <button id="nextScanButton"
+                class="btn btn-primary"
+                style="display:none"
+                onclick="restartScanner()">
+          SCAN BERIKUTNYA
+        </button>
+
+        <button class="btn btn-secondary"
+                onclick="closeScanner()">
+          KEMBALI KE DASHBOARD
+        </button>
+
+      </div>
+
+      <div class="status" id="cameraStatus">
+        Menyiapkan kamera...
+      </div>
+
+    </section>
+
+  </div>
+</div>
+
+<!-- IFRAME PENGHUBUNG KE APPS SCRIPT -->
+<iframe name="apiFrame"
+        id="apiFrame"
+        class="hidden-frame"></iframe>
+
+<form id="apiForm"
+      method="POST"
+      target="apiFrame"
+      class="hidden-frame">
+
+  <input type="hidden"
+         name="payload"
+         id="apiPayload">
+
+</form>
+
+<script>
+
+/****************************************************
+ * PENGATURAN
+ ****************************************************/
+
+const API_URL =
+  'TEMPEL_URL_WEB_APP_GOOGLE_APPS_SCRIPT_DI_SINI';
+
+let sessionToken = '';
+let currentUser = null;
+let scanner = null;
+let scannerRunning = false;
+let scanLocked = false;
+let pendingRequests = {};
+
+/****************************************************
+ * NAVIGASI
+ ****************************************************/
+
+function showView(viewId) {
+  document.querySelectorAll('.view').forEach(view => {
+    view.classList.remove('active');
+  });
+
+  document.getElementById(viewId).classList.add('active');
+}
+
+/****************************************************
+ * KOMUNIKASI KE GOOGLE APPS SCRIPT
+ ****************************************************/
+
+function apiRequest(action, data = {}) {
+  return new Promise((resolve, reject) => {
+
+    if (!API_URL.startsWith('https://script.google.com/')) {
+      reject(new Error('URL Apps Script belum diatur.'));
+      return;
+    }
+
+    const requestId =
+      Date.now().toString() + Math.random().toString(36).slice(2);
+
+    const payload = {
+      action: action,
+      requestId: requestId,
+      ...data
+    };
+
+    pendingRequests[requestId] = {
+      resolve: resolve,
+      reject: reject
+    };
+
+    document.getElementById('apiPayload').value =
+      JSON.stringify(payload);
+
+    document.getElementById('apiForm').action = API_URL;
+
+    document.getElementById('apiForm').submit();
+
+    setTimeout(() => {
+      if (pendingRequests[requestId]) {
+        delete pendingRequests[requestId];
+        reject(new Error(
+          'Server tidak memberikan respons. Periksa koneksi atau deployment Apps Script.'
+        ));
+      }
+    }, 30000);
+
+  });
+}
+
+/*
+ * Menerima balasan dari iframe Apps Script.
+ */
+window.addEventListener('message', function(event) {
+
+  if (event.source !== document.getElementById('apiFrame').contentWindow) {
+    return;
+  }
+
+  const message = event.data;
+
+  if (!message || message.type !== 'ABSENSI_RESPONSE') {
+    return;
+  }
+
+  const request = pendingRequests[message.requestId];
+
+  if (!request) return;
+
+  delete pendingRequests[message.requestId];
+
+  request.resolve(message.result);
+});
+
+/****************************************************
+ * LOGIN
+ ****************************************************/
+
+async function login() {
+
+  const username =
+    document.getElementById('username').value.trim();
+
+  const password =
+    document.getElementById('password').value;
+
+  const message =
+    document.getElementById('loginMessage');
+
+  if (!username || !password) {
+    message.textContent = 'Username dan password wajib diisi.';
+    return;
+  }
+
+  message.textContent = 'Sedang memeriksa akun...';
+
+  try {
+
+    const result = await apiRequest('login', {
+      username: username,
+      password: password
+    });
+
+    if (!result.success) {
+      message.textContent = result.message;
+      return;
+    }
+
+    sessionToken = result.token;
+    currentUser = result.user;
+
+    document.getElementById('userName').textContent =
+      currentUser.nama;
+
+    document.getElementById('userRole').textContent =
+      currentUser.role.toUpperCase();
+
+    document.getElementById('password').value = '';
+
+    showView('dashboardView');
+
+    loadDashboard();
+
+  } catch (error) {
+    message.textContent = error.message;
+  }
+}
+
+/****************************************************
+ * DASHBOARD
+ ****************************************************/
+
+async function loadDashboard() {
+
+  try {
+
+    const result = await apiRequest('dashboard', {
+      token: sessionToken
+    });
+
+    if (!result.success) {
+      alert(result.message);
+      return;
+    }
+
+    document.getElementById('totalHadir').textContent =
+      result.total;
+
+    const tbody =
+      document.getElementById('attendanceTable');
+
+    if (!result.records.length) {
+      tbody.innerHTML =
+        '<tr><td colspan="5">Belum ada kehadiran hari ini.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = result.records.map((item, index) => `
+      <tr>
+        <td>${index + 1}</td>
+        <td>${escapeHTML(item.id)}</td>
+        <td>${escapeHTML(item.nama)}</td>
+        <td>${escapeHTML(item.peran)}</td>
+        <td>${escapeHTML(item.waktu)}</td>
+      </tr>
+    `).join('');
+
+  } catch (error) {
+    alert(error.message);
+  }
+}
+
+/****************************************************
+ * BUKA SCANNER
+ ****************************************************/
+
+async function openScanner() {
+
+  showView('scannerView');
+
+  document.getElementById('scanResult').className = 'result';
+  document.getElementById('scanResult').innerHTML = '';
+
+  document.getElementById('nextScanButton').style.display = 'none';
+
+  document.getElementById('cameraStatus').textContent =
+    'Meminta izin kamera...';
+
+  scanLocked = false;
+
+  await startScanner();
+}
+
+/****************************************************
+ * MENYALAKAN KAMERA BELAKANG
+ ****************************************************/
+
+async function startScanner() {
+
+  try {
+
+    if (!window.Html5Qrcode) {
+      throw new Error('Library scanner QR Code gagal dimuat.');
+    }
+
+    if (!scanner) {
+      scanner = new Html5Qrcode('reader');
+    }
+
+    await scanner.start(
+      { facingMode: 'environment' },
+      {
+        fps: 12,
+        qrbox: function(width, height) {
+          const size = Math.min(width, height) * 0.72;
+          return {
+            width: size,
+            height: size
+          };
+        },
+        aspectRatio: 1
+      },
+      onScanSuccess,
+      function() {}
+    );
+
+    scannerRunning = true;
+
+    document.getElementById('cameraStatus').textContent =
+      'Kamera aktif. Silakan pindai QR Code.';
+
+  } catch (error) {
+
+    scannerRunning = false;
+
+    document.getElementById('cameraStatus').textContent =
+      'Kamera gagal dibuka: ' + error.message;
+
+    showResult(
+      'Gagal membuka kamera. Pastikan izin kamera diberikan dan website dibuka melalui HTTPS.',
+      false
+    );
+  }
+}
+
+/****************************************************
+ * HASIL PEMINDAIAN
+ ****************************************************/
+
+async function onScanSuccess(decodedText) {
+
+  if (scanLocked) return;
+
+  scanLocked = true;
+
+  const qr = String(decodedText).trim();
+
+  document.getElementById('cameraStatus').textContent =
+    'QR terbaca. Mengirim data ke database...';
+
+  try {
+    if (scannerRunning) {
+      await scanner.stop();
+      scannerRunning = false;
+    }
+  } catch (error) {}
+
+  try {
+
+    const result = await apiRequest('scan', {
+      token: sessionToken,
+      qr: qr
+    });
+
+    if (result.success) {
+
+      const person = result.person;
+
+      showResult(
+        '<strong>ABSENSI BERHASIL!</strong>' +
+        'Nama: ' + escapeHTML(person.nama) + '<br>' +
+        'ID: ' + escapeHTML(person.id) + '<br>' +
+        'Peran: ' + escapeHTML(person.peran) + '<br>' +
+        'Kelas/Jabatan: ' + escapeHTML(person.kelas) + '<br>' +
+        'Tanggal: ' + escapeHTML(result.tanggal) + '<br>' +
+        'Waktu: ' + escapeHTML(result.waktu) + '<br>' +
+        'Status: ' + escapeHTML(result.status),
+        true
+      );
+
+      document.getElementById('cameraStatus').textContent =
+        'Data berhasil masuk ke Google Spreadsheet.';
+
+      document.getElementById('nextScanButton').style.display =
+        'block';
+
+      loadDashboard();
+
+    } else {
+
+      showResult(
+        '<strong>PEMINDAIAN GAGAL</strong>' +
+        escapeHTML(result.message),
+        false
+      );
+
+      document.getElementById('cameraStatus').textContent =
+        'Silakan periksa QR Code atau coba kembali.';
+
+      document.getElementById('nextScanButton').style.display =
+        'block';
+    }
+
+  } catch (error) {
+
+    showResult(
+      '<strong>TERJADI KESALAHAN</strong>' +
+      escapeHTML(error.message),
+      false
+    );
+
+    document.getElementById('nextScanButton').style.display =
+      'block';
+  }
+}
+
+/****************************************************
+ * TAMPILKAN HASIL
+ ****************************************************/
+
+function showResult(message, success) {
+
+  const result = document.getElementById('scanResult');
+
+  result.className = success ? 'result success' : 'result error';
+
+  result.innerHTML = message;
+}
+
+/****************************************************
+ * SCAN BERIKUTNYA
+ ****************************************************/
+
+async function restartScanner() {
+
+  scanLocked = false;
+
+  document.getElementById('scanResult').className = 'result';
+
+  document.getElementById('scanResult').innerHTML = '';
+
+  document.getElementById('nextScanButton').style.display =
+    'none';
+
+  document.getElementById('cameraStatus').textContent =
+    'Menyiapkan kamera kembali...';
+
+  await startScanner();
+}
+
+/****************************************************
+ * TUTUP KAMERA
+ ****************************************************/
+
+async function closeScanner() {
+
+  if (scanner && scannerRunning) {
+    try {
+      await scanner.stop();
+    } catch (error) {}
+  }
+
+  scannerRunning = false;
+
+  showView('dashboardView');
+
+  loadDashboard();
+}
+
+/****************************************************
+ * LOGOUT
+ ****************************************************/
+
+async function logout() {
+
+  if (scanner && scannerRunning) {
+    try {
+      await scanner.stop();
+    } catch (error) {}
+  }
+
+  scannerRunning = false;
+
+  try {
+    await apiRequest('logout', {
+      token: sessionToken
+    });
+  } catch (error) {}
+
+  sessionToken = '';
+  currentUser = null;
+
+  document.getElementById('username').value = '';
+  document.getElementById('password').value = '';
+
+  showView('loginView');
+}
+
+/****************************************************
+ * AMANKAN TAMPILAN TEKS
+ ****************************************************/
+
+function escapeHTML(value) {
+  return String(value ?? '').replace(/[&<>"']/g, function(char) {
+    return {
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#039;'
+    }[char];
+  });
+}
+
+</script>
+</body>
+</html>
